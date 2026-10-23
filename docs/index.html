@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="format-detection" content="telephone=no">
+  <title>試乗予約</title>
+  <script src="config.js"></script>
+  <style>
+    :root {
+      --bg: #f4f5f8;
+      --card: #ffffff;
+      --text: #1d2330;
+      --muted: #6b7280;
+      --line: #e3e6ec;
+      --primary: #1f4fd8;
+      --primary-weak: #e8eefc;
+      --danger: #c62828;
+      --ok: #1b7f3b;
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif;
+      font-size: 16px; line-height: 1.6;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    header {
+      background: var(--primary); color: #fff;
+      padding: calc(14px + env(safe-area-inset-top)) 16px 14px;
+    }
+    header h1 { margin: 0; font-size: 18px; font-weight: 700; }
+    header p { margin: 2px 0 0; font-size: 13px; opacity: .85; }
+    main { max-width: 640px; margin: 0 auto; padding: 16px; }
+
+    .steps { display: flex; gap: 6px; margin-bottom: 16px; }
+    .steps span {
+      flex: 1; text-align: center; font-size: 12px; padding: 6px 0;
+      border-radius: 999px; background: var(--line); color: var(--muted);
+    }
+    .steps span.on { background: var(--primary); color: #fff; }
+
+    section.card {
+      background: var(--card); border-radius: var(--radius);
+      padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    }
+    h2 { font-size: 16px; margin: 0 0 12px; }
+    .hint { color: var(--muted); font-size: 13px; margin: -6px 0 12px; }
+
+    .cars { display: grid; gap: 10px; }
+    .car {
+      display: flex; gap: 12px; align-items: center; width: 100%;
+      border: 2px solid var(--line); border-radius: 12px; background: #fff;
+      padding: 10px; text-align: left; font: inherit; color: inherit; cursor: pointer;
+    }
+    .car.sel { border-color: var(--primary); background: var(--primary-weak); }
+    .car img, .car .ph {
+      width: 84px; height: 60px; border-radius: 8px; object-fit: cover; flex-shrink: 0;
+      background: #dfe4ee; display: flex; align-items: center; justify-content: center; font-size: 28px;
+    }
+    .car b { display: block; font-size: 16px; }
+    .car small { color: var(--muted); font-size: 13px; }
+
+    .dates {
+      display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px;
+      scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch;
+    }
+    .date {
+      flex: 0 0 auto; min-width: 72px; scroll-snap-align: start;
+      border: 2px solid var(--line); border-radius: 12px; background: #fff;
+      padding: 8px 6px; font: inherit; color: inherit; text-align: center; cursor: pointer;
+    }
+    .date .d { display: block; font-size: 17px; font-weight: 700; }
+    .date .w { font-size: 12px; color: var(--muted); }
+    .date.sat .w { color: #1565c0; }
+    .date.sun .w { color: var(--danger); }
+    .date.sel { border-color: var(--primary); background: var(--primary); color: #fff; }
+    .date.sel .w { color: #fff; }
+
+    .slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+    .slot {
+      border: 2px solid var(--line); border-radius: 10px; background: #fff;
+      padding: 10px 4px; font: inherit; color: inherit; cursor: pointer; text-align: center;
+    }
+    .slot small { display: block; font-size: 11px; color: var(--muted); }
+    .slot:disabled { background: #f0f1f4; color: #b0b5bf; cursor: default; text-decoration: line-through; }
+    .slot:disabled small { color: #b0b5bf; }
+    .slot.sel { border-color: var(--primary); background: var(--primary); color: #fff; }
+    .slot.sel small { color: #fff; }
+
+    label.field { display: block; margin-bottom: 14px; }
+    label.field span { display: block; font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    label.field em { font-style: normal; color: var(--danger); font-size: 12px; margin-left: 4px; }
+    input[type=text], input[type=tel] {
+      width: 100%; font-size: 16px; /* iOS で拡大されないよう 16px 以上 */
+      padding: 12px; border: 1px solid #cfd4dc; border-radius: 10px; background: #fff;
+      -webkit-appearance: none; appearance: none;
+    }
+    input:focus { outline: 2px solid var(--primary); outline-offset: 0; border-color: transparent; }
+
+    .terms {
+      max-height: 200px; overflow-y: auto; white-space: pre-wrap;
+      border: 1px solid var(--line); border-radius: 10px; padding: 12px;
+      background: #fafbfc; font-size: 13px; margin-bottom: 12px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .check {
+      display: flex; gap: 10px; align-items: flex-start; padding: 12px;
+      border: 2px solid var(--line); border-radius: 10px; cursor: pointer;
+    }
+    .check input { width: 22px; height: 22px; margin: 2px 0 0; flex-shrink: 0; accent-color: var(--primary); }
+    .check.on { border-color: var(--primary); background: var(--primary-weak); }
+
+    .summary { display: grid; grid-template-columns: 5.5em 1fr; gap: 4px 8px; font-size: 15px; margin: 0; }
+    .summary dt { color: var(--muted); }
+    .summary dd { margin: 0; font-weight: 600; word-break: break-all; }
+
+    .btn {
+      display: block; width: 100%; padding: 15px; font: inherit; font-size: 17px; font-weight: 700;
+      border: none; border-radius: 12px; background: var(--primary); color: #fff; cursor: pointer;
+    }
+    .btn:disabled { background: #a9b6d9; cursor: default; }
+    .btn.sub { background: #fff; color: var(--primary); border: 2px solid var(--primary); margin-top: 10px; }
+
+    .error {
+      background: #fdecea; color: var(--danger); border-radius: 10px;
+      padding: 12px; margin-bottom: 16px; font-size: 14px;
+    }
+    .empty { color: var(--muted); font-size: 14px; text-align: center; padding: 12px 0; }
+    .loading { text-align: center; color: var(--muted); padding: 24px 0; }
+    .loading::before {
+      content: ""; display: block; width: 28px; height: 28px; margin: 0 auto 8px;
+      border: 3px solid var(--line); border-top-color: var(--primary); border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .done { text-align: center; }
+    .done .mark {
+      width: 64px; height: 64px; margin: 8px auto 12px; border-radius: 50%;
+      background: var(--ok); color: #fff; font-size: 36px; line-height: 64px;
+    }
+    .done .id { font-size: 22px; font-weight: 700; letter-spacing: .05em; margin: 4px 0 16px; }
+    .done .summary { text-align: left; margin-bottom: 16px; }
+    .notice { font-size: 13px; color: var(--muted); text-align: left; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 id="storeName">試乗予約</h1>
+    <p id="subTitle">オンライン試乗予約</p>
+  </header>
+
+  <main>
+    <div id="error" class="error" hidden></div>
+    <div id="initLoading" class="loading">読み込み中…</div>
+
+    <!-- 予約入力 -->
+    <div id="bookingView" hidden>
+      <div class="steps">
+        <span data-step="1">① 車種</span>
+        <span data-step="2">② 日付</span>
+        <span data-step="3">③ 時間</span>
+        <span data-step="4">④ 入力</span>
+      </div>
+
+      <section class="card">
+        <h2>① 試乗車を選択</h2>
+        <div id="cars" class="cars"></div>
+      </section>
+
+      <section class="card" id="dateCard" hidden>
+        <h2>② 日付を選択</h2>
+        <p class="hint">横にスクロールできます</p>
+        <div id="dates" class="dates"></div>
+      </section>
+
+      <section class="card" id="slotCard" hidden>
+        <h2>③ 時間を選択</h2>
+        <p class="hint" id="slotHint"></p>
+        <div id="slots" class="slots"></div>
+      </section>
+
+      <section class="card" id="formCard" hidden>
+        <h2>④ お客様情報</h2>
+        <dl class="summary" id="selSummary"></dl>
+        <div style="height:14px"></div>
+        <form id="form" novalidate>
+          <label class="field">
+            <span>氏名<em>必須</em></span>
+            <input type="text" id="name" name="name" maxlength="50" autocomplete="name" placeholder="例）山田 太郎" required>
+          </label>
+          <label class="field">
+            <span>連絡先（電話番号またはメールアドレス）<em>必須</em></span>
+            <input type="text" id="contact" name="contact" maxlength="100" autocomplete="tel" inputmode="email"
+                   placeholder="例）090-1234-5678 / taro@example.com" required>
+          </label>
+
+          <span style="display:block;font-size:14px;font-weight:600;margin-bottom:4px;">利用規約<em style="font-style:normal;color:var(--danger);font-size:12px;margin-left:4px;">必須</em></span>
+          <div class="terms" id="terms"></div>
+          <label class="check" id="agreeBox">
+            <input type="checkbox" id="agreed">
+            <span>上記の利用規約を読み、内容を理解・同意しました</span>
+          </label>
+          <div style="height:16px"></div>
+          <button type="submit" class="btn" id="submitBtn" disabled>この内容で予約する</button>
+        </form>
+      </section>
+    </div>
+
+    <!-- 予約完了 -->
+    <section class="card done" id="doneView" hidden>
+      <div class="mark">✓</div>
+      <h2>ご予約を受け付けました</h2>
+      <div class="notice" style="text-align:center">予約ID</div>
+      <div class="id" id="doneId"></div>
+      <dl class="summary" id="doneSummary"></dl>
+      <p class="notice" id="doneNotice"></p>
+      <button type="button" class="btn sub" id="againBtn">別の予約をする</button>
+    </section>
+  </main>
+
+  <script>
+    var state = { init: null, carId: null, date: null, slot: null, slots: [], submitting: false, slotReq: 0 };
+    var $ = function (id) { return document.getElementById(id); };
+
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+
+    function showError(msg) {
+      var el = $('error');
+      el.textContent = msg;
+      el.hidden = !msg;
+      if (msg) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // Apps Script の API を呼び出す。Google のログイン情報（Cookie）は送らないため、
+    // 複数アカウントでログイン中のブラウザでも動作する。
+    function request(fn, args) {
+      var url = window.API_URL;
+      var opts = { credentials: 'omit', cache: 'no-store' };
+      if (fn === 'book') {
+        // text/plain にして CORS のプリフライトを避ける
+        opts.method = 'POST';
+        opts.headers = { 'Content-Type': 'text/plain;charset=utf-8' };
+        opts.body = JSON.stringify({ action: 'book', form: args[0] });
+      } else if (fn === 'getSlots') {
+        url += '?action=slots&carId=' + encodeURIComponent(args[0]) + '&date=' + encodeURIComponent(args[1]);
+      } else {
+        url += '?action=init';
+      }
+      return fetch(url, opts).then(function (res) { return res.json(); });
+    }
+
+    function call(fn, args, ok, keepError) {
+      if (!keepError) showError('');
+      function fail(msg) {
+        if (fn === 'getInitData') $('initLoading').hidden = true;
+        showError(msg);
+        if (fn === 'book') {
+          state.submitting = false;
+          updateSubmit();
+          // 先に予約が入った・締め切られた場合は空き状況を取り直す
+          if (/先に予約が入りました|締め切りました/.test(msg)) loadSlots(true);
+        }
+      }
+      if (!/^https:\/\/script\.google\.com\//.test(window.API_URL || '')) {
+        fail('config.js に Apps Script のウェブアプリ URL が設定されていません。');
+        return;
+      }
+      request(fn, args).then(function (res) {
+        if (res && res.ok) ok(res.data);
+        else fail((res && res.error) || 'エラーが発生しました。');
+      }, function () {
+        fail('通信エラーが発生しました。電波の良い場所で再度お試しください。');
+      });
+    }
+
+    function setStep(n) {
+      Array.prototype.forEach.call(document.querySelectorAll('.steps span'), function (el) {
+        el.classList.toggle('on', Number(el.getAttribute('data-step')) <= n);
+      });
+    }
+
+    function scrollToCard(id) {
+      setTimeout(function () { $(id).scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 50);
+    }
+
+    function carById(id) {
+      return state.init.cars.filter(function (c) { return c.id === id; })[0];
+    }
+    function dateById(d) {
+      return state.init.dates.filter(function (x) { return x.date === d; })[0];
+    }
+
+    // --- 初期化 ---
+    function init() {
+      call('getInitData', [], function (data) {
+        state.init = data;
+        $('initLoading').hidden = true;
+        $('storeName').textContent = data.storeName;
+        $('subTitle').textContent = 'オンライン試乗予約（1回 約' + data.duration + '分）';
+        document.title = data.storeName + ' 試乗予約';
+        $('terms').textContent = data.terms;
+        renderCars();
+        $('bookingView').hidden = false;
+        setStep(1);
+      });
+    }
+
+    function renderCars() {
+      var cars = state.init.cars;
+      if (!cars.length) {
+        $('cars').innerHTML = '<div class="empty">現在、受付中の試乗車はありません。</div>';
+        return;
+      }
+      $('cars').innerHTML = cars.map(function (c) {
+        var img = c.imageUrl
+          ? '<img src="' + esc(c.imageUrl) + '" alt="" loading="lazy">'
+          : '<span class="ph">🚗</span>';
+        return '<button type="button" class="car' + (c.id === state.carId ? ' sel' : '') + '" data-id="' + esc(c.id) + '">' +
+          img + '<span><b>' + esc(c.name) + '</b><small>' + esc(c.description) + '</small></span></button>';
+      }).join('');
+    }
+
+    function renderDates() {
+      var dates = state.init.dates;
+      if (!dates.length) {
+        $('dates').innerHTML = '<div class="empty">予約可能な日付がありません。</div>';
+        return;
+      }
+      $('dates').innerHTML = dates.map(function (d) {
+        var p = d.date.split('-');
+        var w = '日月火水木金土'.charAt(d.weekday);
+        var cls = 'date' + (d.weekday === 6 ? ' sat' : '') + (d.weekday === 0 ? ' sun' : '') + (d.date === state.date ? ' sel' : '');
+        return '<button type="button" class="' + cls + '" data-date="' + d.date + '">' +
+          '<span class="w">' + Number(p[1]) + '月</span><span class="d">' + Number(p[2]) + '</span><span class="w">(' + w + ')</span></button>';
+      }).join('');
+    }
+
+    function loadSlots(keepError) {
+      state.slot = null;
+      $('formCard').hidden = true;
+      $('slotCard').hidden = false;
+      $('slots').innerHTML = '<div class="loading" style="grid-column:1/-1">空き状況を確認中…</div>';
+      $('slotHint').textContent = carById(state.carId).name + ' ／ ' + dateById(state.date).label;
+      var req = ++state.slotReq;
+      call('getSlots', [state.carId, state.date], function (slots) {
+        if (req !== state.slotReq) return; // 古いリクエストの結果は無視
+        state.slots = slots;
+        renderSlots();
+      }, keepError);
+    }
+
+    function renderSlots() {
+      var slots = state.slots;
+      var any = slots.some(function (s) { return s.available; });
+      if (!slots.length || !any) {
+        $('slots').innerHTML = '<div class="empty" style="grid-column:1/-1">この日は空き枠がありません。別の日付をお選びください。</div>';
+        return;
+      }
+      $('slots').innerHTML = slots.map(function (s) {
+        var sel = state.slot && state.slot.start === s.start;
+        return '<button type="button" class="slot' + (sel ? ' sel' : '') + '" data-start="' + s.start + '"' + (s.available ? '' : ' disabled') + '>' +
+          s.start + '<small>' + (s.available ? '〜' + s.end : '受付不可') + '</small></button>';
+      }).join('');
+    }
+
+    function renderSummary(el, r) {
+      el.innerHTML = r.map(function (row) {
+        return '<dt>' + esc(row[0]) + '</dt><dd>' + esc(row[1]) + '</dd>';
+      }).join('');
+    }
+
+    function updateSubmit() {
+      var ok = $('name').value.trim() && $('contact').value.trim() && $('agreed').checked && state.slot && !state.submitting;
+      $('submitBtn').disabled = !ok;
+      $('submitBtn').textContent = state.submitting ? '送信中…' : 'この内容で予約する';
+      $('agreeBox').classList.toggle('on', $('agreed').checked);
+    }
+
+    // --- イベント ---
+    $('cars').addEventListener('click', function (e) {
+      var b = e.target.closest('.car');
+      if (!b) return;
+      state.carId = b.getAttribute('data-id');
+      renderCars();
+      $('dateCard').hidden = false;
+      renderDates();
+      setStep(2);
+      if (state.date) { loadSlots(); setStep(3); }
+      scrollToCard(state.date ? 'slotCard' : 'dateCard');
+    });
+
+    $('dates').addEventListener('click', function (e) {
+      var b = e.target.closest('.date');
+      if (!b) return;
+      state.date = b.getAttribute('data-date');
+      renderDates();
+      loadSlots();
+      setStep(3);
+      scrollToCard('slotCard');
+    });
+
+    $('slots').addEventListener('click', function (e) {
+      var b = e.target.closest('.slot');
+      if (!b || b.disabled) return;
+      var start = b.getAttribute('data-start');
+      state.slot = state.slots.filter(function (s) { return s.start === start; })[0];
+      renderSlots();
+      renderSummary($('selSummary'), [
+        ['試乗車', carById(state.carId).name],
+        ['日時', dateById(state.date).label + ' ' + state.slot.start + '〜' + state.slot.end],
+      ]);
+      $('formCard').hidden = false;
+      setStep(4);
+      updateSubmit();
+      scrollToCard('formCard');
+    });
+
+    ['name', 'contact'].forEach(function (id) { $(id).addEventListener('input', updateSubmit); });
+    $('agreed').addEventListener('change', updateSubmit);
+
+    $('form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      if ($('submitBtn').disabled) return;
+      state.submitting = true;
+      updateSubmit();
+      call('book', [{
+        carId: state.carId,
+        date: state.date,
+        start: state.slot.start,
+        name: $('name').value,
+        contact: $('contact').value,
+        agreed: $('agreed').checked,
+      }], function (r) {
+        state.submitting = false;
+        $('bookingView').hidden = true;
+        $('doneView').hidden = false;
+        $('doneId').textContent = r.id;
+        renderSummary($('doneSummary'), [
+          ['試乗車', r.carName],
+          ['日時', r.dateLabel + ' ' + r.start + '〜' + r.end],
+          ['氏名', r.name],
+          ['連絡先', r.contact],
+        ]);
+        $('doneNotice').textContent = '当日は運転免許証をお持ちのうえ、予約時刻の5分前までにお越しください。' +
+          '予約内容の変更・キャンセルは ' + r.storeName + (r.storePhone ? '（TEL: ' + r.storePhone + '）' : '') +
+          ' までご連絡ください。この画面のスクリーンショットを保存しておくと便利です。';
+        window.scrollTo(0, 0);
+      });
+    });
+
+    $('againBtn').addEventListener('click', function () {
+      state.slot = null;
+      $('agreed').checked = false;
+      $('doneView').hidden = true;
+      $('bookingView').hidden = false;
+      $('formCard').hidden = true;
+      if (state.carId && state.date) { loadSlots(); setStep(3); }
+      updateSubmit();
+      window.scrollTo(0, 0);
+    });
+
+    init();
+  </script>
+</body>
+</html>
