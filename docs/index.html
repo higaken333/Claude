@@ -33,6 +33,7 @@
     }
     header h1 { margin: 0; font-size: 18px; font-weight: 700; }
     header p { margin: 2px 0 0; font-size: 13px; opacity: .85; }
+    header a { color: #fff; text-decoration: underline; }
     main { max-width: 640px; margin: 0 auto; padding: 16px; }
 
     .steps { display: flex; gap: 6px; margin-bottom: 16px; }
@@ -62,6 +63,70 @@
     }
     .car b { display: block; font-size: 16px; }
     .car small { color: var(--muted); font-size: 13px; }
+    .car .photos { display: block; color: var(--primary); font-size: 12px; margin-top: 2px; }
+
+    /*
+     * カードの内幅（= min(640px, 画面幅) - 64px）を基準に、幅・高さとも 1.5 倍で表示する。
+     * 幅は画面からはみ出さないよう、画面幅 - 16px を上限にする（iPhone ではほぼ画面いっぱい）。
+     */
+    .gallery {
+      --w: min(calc(100vw - 16px), calc((min(640px, 100vw) - 64px) * 1.5));
+      position: relative; width: var(--w);
+      margin: 8px 0 0 calc((100% - var(--w)) / 2); /* カード幅より広い分を左右均等にはみ出させる */
+      border-radius: 12px; overflow: hidden; background: #f0f1f4;
+    }
+    .gallery-track {
+      display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    }
+    .gallery-track::-webkit-scrollbar { display: none; }
+    .gallery-track img {
+      flex: 0 0 100%; width: 100%; height: calc((min(640px, 100vw) - 64px) * 15 / 16);
+      object-fit: contain; scroll-snap-align: center; cursor: zoom-in;
+    }
+    .gallery .zoom-hint {
+      position: absolute; left: 8px; bottom: 8px; padding: 2px 8px; border-radius: 999px;
+      background: rgba(0,0,0,.55); color: #fff; font-size: 12px; pointer-events: none;
+    }
+
+    /* 拡大表示 */
+    .lb { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 100; background: rgba(0,0,0,.92); }
+    .lb-stage {
+      position: absolute; top: 0; right: 0; bottom: 0; left: 0; overflow: auto;
+      display: flex; align-items: center; justify-content: center; -webkit-overflow-scrolling: touch;
+    }
+    .lb-stage img { max-width: 100%; max-height: 100%; object-fit: contain; cursor: zoom-in; }
+    .lb.zoomed .lb-stage { display: block; }
+    .lb.zoomed .lb-stage img { max-width: none; max-height: none; width: 250%; cursor: zoom-out; }
+    .lb button {
+      position: absolute; border: none; border-radius: 50%; padding: 0; cursor: pointer;
+      background: rgba(255,255,255,.18); color: #fff;
+    }
+    .lb-close {
+      top: calc(10px + env(safe-area-inset-top)); right: 10px;
+      width: 44px; height: 44px; font-size: 28px; line-height: 44px;
+    }
+    .lb-nav { top: 50%; transform: translateY(-50%); width: 44px; height: 44px; font-size: 28px; line-height: 44px; }
+    .lb-prev { left: 10px; }
+    .lb-next { right: 10px; }
+    .lb.zoomed .lb-nav { display: none; }
+    .lb-info {
+      position: absolute; left: 0; right: 0; bottom: calc(14px + env(safe-area-inset-bottom));
+      text-align: center; color: #fff; font-size: 13px; pointer-events: none;
+      text-shadow: 0 1px 2px rgba(0,0,0,.6);
+    }
+    .gallery .nav {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      width: 36px; height: 36px; border: none; border-radius: 50%; padding: 0;
+      background: rgba(255,255,255,.85); color: var(--text); font-size: 22px; line-height: 36px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.2); cursor: pointer;
+    }
+    .gallery .prev { left: 8px; }
+    .gallery .next { right: 8px; }
+    .gallery .count {
+      position: absolute; right: 8px; bottom: 8px; padding: 2px 8px; border-radius: 999px;
+      background: rgba(0,0,0,.55); color: #fff; font-size: 12px;
+    }
 
     .dates {
       display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px;
@@ -152,6 +217,7 @@
   <header>
     <h1 id="storeName">試乗予約</h1>
     <p id="subTitle">オンライン試乗予約</p>
+    <p id="changeNote">予約変更・キャンセルは<a href="mailto:xtakeoverjp@gmail.com">こちら</a>まで</p>
   </header>
 
   <main>
@@ -222,6 +288,15 @@
       <button type="button" class="btn sub" id="againBtn">別の予約をする</button>
     </section>
   </main>
+
+  <!-- 写真の拡大表示 -->
+  <div id="lightbox" class="lb" hidden role="dialog" aria-modal="true" aria-label="写真の拡大表示">
+    <div class="lb-stage" id="lbStage"><img id="lbImg" alt=""></div>
+    <button type="button" class="lb-close" id="lbClose" aria-label="閉じる">×</button>
+    <button type="button" class="lb-nav lb-prev" id="lbPrev" aria-label="前の写真">‹</button>
+    <button type="button" class="lb-nav lb-next" id="lbNext" aria-label="次の写真">›</button>
+    <div class="lb-info" id="lbInfo"></div>
+  </div>
 
   <script>
     var state = { init: null, carId: null, date: null, slot: null, slots: [], submitting: false, slotReq: 0 };
@@ -305,7 +380,8 @@
         state.init = data;
         $('initLoading').hidden = true;
         $('storeName').textContent = data.storeName;
-        $('subTitle').textContent = 'オンライン試乗予約（1回 約' + data.duration + '分）';
+        $('subTitle').textContent = 'オンライン試乗予約（1枠 約' + data.duration + '分）';
+        $('changeNote').textContent = '予約変更・キャンセルは' + <a href="mailto:xtakeoverjp@gmail.com">こちら</a> + 'まで';
         document.title = data.storeName + ' 試乗予約';
         $('terms').textContent = data.terms;
         renderCars();
@@ -321,12 +397,34 @@
         return;
       }
       $('cars').innerHTML = cars.map(function (c) {
-        var img = c.imageUrl
-          ? '<img src="' + esc(c.imageUrl) + '" alt="" loading="lazy">'
+        var imgs = carImages(c);
+        var sel = c.id === state.carId;
+        var thumb = imgs.length
+          ? '<img src="' + esc(imgs[0]) + '" alt="" loading="lazy">'
           : '<span class="ph">🚗</span>';
-        return '<button type="button" class="car' + (c.id === state.carId ? ' sel' : '') + '" data-id="' + esc(c.id) + '">' +
-          img + '<span><b>' + esc(c.name) + '</b><small>' + esc(c.description) + '</small></span></button>';
+        var photos = imgs.length > 1 ? '<span class="photos">📷 写真 ' + imgs.length + '枚' + (sel ? '' : '（選択すると大きく表示）') + '</span>' : '';
+        return '<div class="car-item" data-id="' + esc(c.id) + '">' +
+          '<button type="button" class="car' + (sel ? ' sel' : '') + '" data-id="' + esc(c.id) + '">' +
+          thumb + '<span><b>' + esc(c.name) + '</b><small>' + esc(c.description) + '</small>' + photos + '</span></button>' +
+          (sel && imgs.length ? galleryHtml(c, imgs) : '') + '</div>';
       }).join('');
+    }
+
+    // imageUrls が無い旧版の API にも対応する
+    function carImages(c) {
+      return c.imageUrls || (c.imageUrl ? [c.imageUrl] : []);
+    }
+
+    function galleryHtml(c, imgs) {
+      var html = '<div class="gallery"><div class="gallery-track">' + imgs.map(function (u, i) {
+        return '<img src="' + esc(u) + '" alt="' + esc(c.name) + ' 写真' + (i + 1) + '"' + (i ? ' loading="lazy"' : '') + '>';
+      }).join('') + '</div><span class="zoom-hint">🔍 タップで拡大</span>';
+      if (imgs.length > 1) {
+        html += '<button type="button" class="nav prev" aria-label="前の写真">‹</button>' +
+          '<button type="button" class="nav next" aria-label="次の写真">›</button>' +
+          '<span class="count">1 / ' + imgs.length + '</span>';
+      }
+      return html + '</div>';
     }
 
     function renderDates() {
@@ -362,7 +460,7 @@
       var slots = state.slots;
       var any = slots.some(function (s) { return s.available; });
       if (!slots.length || !any) {
-        $('slots').innerHTML = '<div class="empty" style="grid-column:1/-1">この日は空き枠がありません。別の日付をお選びください。</div>';
+        $('slots').innerHTML = '<div class="empty" style="grid-column:1/-1">予約可能な空き枠がありません。</div>';
         return;
       }
       $('slots').innerHTML = slots.map(function (s) {
@@ -387,6 +485,17 @@
 
     // --- イベント ---
     $('cars').addEventListener('click', function (e) {
+      var nav = e.target.closest('.nav');
+      if (nav) {
+        var track = nav.parentNode.querySelector('.gallery-track');
+        track.scrollBy({ left: (nav.classList.contains('next') ? 1 : -1) * track.clientWidth, behavior: 'smooth' });
+        return;
+      }
+      if (e.target.matches('.gallery-track img')) {
+        var imgTrack = e.target.parentNode;
+        openLightbox(carImages(carById(state.carId)), Array.prototype.indexOf.call(imgTrack.children, e.target));
+        return;
+      }
       var b = e.target.closest('.car');
       if (!b) return;
       state.carId = b.getAttribute('data-id');
@@ -395,8 +504,22 @@
       renderDates();
       setStep(2);
       if (state.date) { loadSlots(); setStep(3); }
-      scrollToCard(state.date ? 'slotCard' : 'dateCard');
+      if (carImages(carById(state.carId)).length) {
+        // 写真を見てもらえるよう、選んだ車を画面上部に表示する
+        var item = $('cars').querySelector('.car-item[data-id="' + state.carId.replace(/["\\]/g, '\\$&') + '"]');
+        setTimeout(function () { item.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 50);
+      } else {
+        scrollToCard(state.date ? 'slotCard' : 'dateCard');
+      }
     });
+
+    // 写真の「n / 枚数」表示を、スワイプ位置に合わせて更新（scroll はバブリングしないので capture で受ける）
+    $('cars').addEventListener('scroll', function (e) {
+      var track = e.target;
+      if (!track.classList || !track.classList.contains('gallery-track')) return;
+      var count = track.parentNode.querySelector('.count');
+      if (count) count.textContent = (Math.round(track.scrollLeft / track.clientWidth) + 1) + ' / ' + track.children.length;
+    }, true);
 
     $('dates').addEventListener('click', function (e) {
       var b = e.target.closest('.date');
@@ -451,8 +574,7 @@
           ['連絡先', r.contact],
         ]);
         $('doneNotice').textContent = '当日は運転免許証をお持ちのうえ、予約時刻の5分前までにお越しください。' +
-          '予約内容の変更・キャンセルは ' + r.storeName + (r.storePhone ? '（TEL: ' + r.storePhone + '）' : '') +
-          ' までご連絡ください。この画面のスクリーンショットを保存しておくと便利です。';
+          '予約内容の変更・キャンセルはxtakeoverjp@gmail.comまでご連絡ください。この画面のスクリーンショットを保存しておくと便利です。';
         window.scrollTo(0, 0);
       });
     });
@@ -466,6 +588,75 @@
       if (state.carId && state.date) { loadSlots(); setStep(3); }
       updateSubmit();
       window.scrollTo(0, 0);
+    });
+
+    // --- 写真の拡大表示 ---
+    var lb = { imgs: [], i: 0, touchX: null };
+
+    function openLightbox(imgs, i) {
+      lb.imgs = imgs;
+      lb.i = i;
+      $('lightbox').hidden = false;
+      document.body.style.overflow = 'hidden';
+      showLightbox();
+    }
+
+    function closeLightbox() {
+      $('lightbox').hidden = true;
+      document.body.style.overflow = '';
+    }
+
+    function showLightbox() {
+      var many = lb.imgs.length > 1;
+      $('lightbox').classList.remove('zoomed');
+      $('lbImg').src = lb.imgs[lb.i];
+      $('lbPrev').hidden = $('lbNext').hidden = !many;
+      $('lbInfo').textContent = (many ? (lb.i + 1) + ' / ' + lb.imgs.length + '　' : '') + '写真をタップで拡大／縮小';
+    }
+
+    function moveLightbox(d) {
+      lb.i = (lb.i + d + lb.imgs.length) % lb.imgs.length;
+      showLightbox();
+    }
+
+    $('lbImg').addEventListener('click', function (e) {
+      var box = $('lightbox');
+      if (box.classList.contains('zoomed')) {
+        box.classList.remove('zoomed');
+        return;
+      }
+      // タップした位置が中央に来るように拡大する
+      var r = this.getBoundingClientRect();
+      var fx = (e.clientX - r.left) / r.width;
+      var fy = (e.clientY - r.top) / r.height;
+      box.classList.add('zoomed');
+      var stage = $('lbStage');
+      stage.scrollLeft = this.offsetWidth * fx - stage.clientWidth / 2;
+      stage.scrollTop = this.offsetHeight * fy - stage.clientHeight / 2;
+    });
+    $('lbStage').addEventListener('click', function (e) {
+      if (e.target === this) closeLightbox(); // 写真の外側をタップで閉じる
+    });
+    $('lbClose').addEventListener('click', closeLightbox);
+    $('lbPrev').addEventListener('click', function () { moveLightbox(-1); });
+    $('lbNext').addEventListener('click', function () { moveLightbox(1); });
+
+    // 拡大していないときは、左右のスワイプで写真を切り替える（拡大中は移動に使う）
+    $('lbStage').addEventListener('touchstart', function (e) {
+      lb.touchX = e.touches.length === 1 && !$('lightbox').classList.contains('zoomed') ? e.touches[0].clientX : null;
+    });
+    $('lbStage').addEventListener('touchend', function (e) {
+      if (lb.touchX === null || lb.imgs.length < 2) return;
+      var dx = e.changedTouches[0].clientX - lb.touchX;
+      if (Math.abs(dx) > 50) moveLightbox(dx < 0 ? 1 : -1);
+      lb.touchX = null;
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if ($('lightbox').hidden) return;
+      if (e.key === 'Escape') closeLightbox();
+      else if (e.key === 'ArrowRight' && lb.imgs.length > 1) moveLightbox(1);
+      else if (e.key === 'ArrowLeft' && lb.imgs.length > 1) moveLightbox(-1);
     });
 
     init();
