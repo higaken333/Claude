@@ -33,7 +33,6 @@
     }
     header h1 { margin: 0; font-size: 18px; font-weight: 700; }
     header p { margin: 2px 0 0; font-size: 13px; opacity: .85; }
-    header a { color: #fff; text-decoration: underline; }
     main { max-width: 640px; margin: 0 auto; padding: 16px; }
 
     .steps { display: flex; gap: 6px; margin-bottom: 16px; }
@@ -217,7 +216,6 @@
   <header>
     <h1 id="storeName">試乗予約</h1>
     <p id="subTitle">オンライン試乗予約</p>
-    <p id="changeNote">予約変更・キャンセルは<a href="mailto:xtakeoverjp@gmail.com">こちら</a>まで</p>
   </header>
 
   <main>
@@ -235,6 +233,7 @@
 
       <section class="card">
         <h2>① 試乗車を選択</h2>
+        <p id="changeNote">予約変更・キャンセルは<a href="mailto:xtakeoverjp@gmail.com">こちら</a>までご連絡ください。</p>
         <div id="cars" class="cars"></div>
       </section>
 
@@ -381,7 +380,6 @@
         $('initLoading').hidden = true;
         $('storeName').textContent = data.storeName;
         $('subTitle').textContent = 'オンライン試乗予約（1枠 約' + data.duration + '分）';
-        $('changeNote').textContent = '予約変更・キャンセルは' + <a href="mailto:xtakeoverjp@gmail.com">こちら</a> + 'まで';
         document.title = data.storeName + ' 試乗予約';
         $('terms').textContent = data.terms;
         renderCars();
